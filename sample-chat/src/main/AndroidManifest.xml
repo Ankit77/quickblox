@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.quickblox.sample.chat">
-
+    <!--https://quickblox.com/developers/SimpleSample-users-android#Online.5COffline_status-->
     <permission
         android:name="com.quickblox.sample.chat.permission.C2D_MESSAGE"
         android:protectionLevel="signature" />

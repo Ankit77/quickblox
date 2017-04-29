@@ -6,7 +6,9 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.ActionBar;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -14,6 +16,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import com.quickblox.chat.QBChatService;
 import com.quickblox.chat.model.QBAttachment;
@@ -74,6 +77,9 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
     private ArrayList<QBChatMessage> unShownMessages;
     private int skipPagination = 0;
     private ChatMessageListener chatMessageListener;
+    private boolean typingStarted;
+    public static final String TYPINGSTART = "typing_start";
+    public static final String TYPINGEND = "typing_end";
 
     public static void startForResult(Activity activity, int code, QBChatDialog dialogId) {
         Intent intent = new Intent(activity, ChatActivity.class);
@@ -268,6 +274,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
         String text = messageEditText.getText().toString().trim();
         if (!TextUtils.isEmpty(text)) {
             sendChatMessage(text, null);
+            messageEditText.setText("");
         }
     }
 
@@ -313,8 +320,37 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
                         });
                     }
                 });
+
         AttachmentPreviewAdapterView previewAdapterView = _findViewById(R.id.adapter_view_attachment_preview);
         previewAdapterView.setAdapter(attachmentPreviewAdapter);
+        messageEditText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                if (!TextUtils.isEmpty(editable.toString()) && editable.toString().trim().length() == 1) {
+                    //Log.i(TAG, “typing started event…”);
+                    typingStarted = true;
+                    //send typing started status
+                    sendChatMessage(TYPINGSTART, null);
+                } else if (editable.toString().trim().length() == 0 && typingStarted) {
+                    //Log.i(TAG, “typing stopped event…”);
+                    typingStarted = false;
+                    sendChatMessage(TYPINGEND, null);
+                    //send typing stopped status
+                }
+
+
+            }
+        });
     }
 
     private void sendChatMessage(String text, QBAttachment attachment) {
@@ -328,7 +364,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
         chatMessage.setDateSent(System.currentTimeMillis() / 1000);
         chatMessage.setMarkable(true);
 
-        if (!QBDialogType.PRIVATE.equals(qbChatDialog.getType()) && !qbChatDialog.isJoined()){
+        if (!QBDialogType.PRIVATE.equals(qbChatDialog.getType()) && !qbChatDialog.isJoined()) {
             Toaster.shortToast("You're still joining a group chat, please wait a bit");
             return;
         }
@@ -343,7 +379,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
             if (attachment != null) {
                 attachmentPreviewAdapter.remove(attachment);
             } else {
-                messageEditText.setText("");
+                //messageEditText.setText("");
             }
         } catch (SmackException.NotConnectedException e) {
             Log.w(TAG, e);
@@ -402,6 +438,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
             leaveGroupDialog();
         }
     }
+
     private void updateDialog(final ArrayList<QBUser> selectedUsers) {
         ChatHelper.getInstance().updateDialogUsers(qbChatDialog, selectedUsers,
                 new QBEntityCallback<QBChatDialog>() {
@@ -569,7 +606,13 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
     public class ChatMessageListener extends QbChatDialogMessageListenerImp {
         @Override
         public void processMessage(String s, QBChatMessage qbChatMessage, Integer integer) {
-            showMessage(qbChatMessage);
+            if (qbChatMessage.getBody().equalsIgnoreCase(TYPINGSTART)) {
+                Toast.makeText(ChatActivity.this, "Typing...", Toast.LENGTH_LONG).show();
+            } else if (qbChatMessage.getBody().equalsIgnoreCase(TYPINGEND)) {
+                Toast.makeText(ChatActivity.this, "Typing end", Toast.LENGTH_LONG).show();
+            } else {
+                showMessage(qbChatMessage);
+            }
         }
     }
 }
