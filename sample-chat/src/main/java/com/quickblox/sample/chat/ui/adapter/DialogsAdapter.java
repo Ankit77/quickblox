@@ -60,7 +60,7 @@ public class DialogsAdapter extends BaseSelectableListAdapter<QBChatDialog> {
             holder.unreadCounterTextView.setVisibility(View.GONE);
         } else {
             holder.unreadCounterTextView.setVisibility(View.VISIBLE);
-            holder.unreadCounterTextView.setText(String.valueOf(unreadMessagesCount > 99 ? 99 : unreadMessagesCount));
+            holder.unreadCounterTextView.setText(String.valueOf(unreadMessagesCount));
         }
 
         holder.rootLayout.setBackgroundColor(isItemSelected(position) ? ResourceUtils.getColor(R.color.selected_list_item_color) :
@@ -69,7 +69,7 @@ public class DialogsAdapter extends BaseSelectableListAdapter<QBChatDialog> {
         return convertView;
     }
 
-    private int getUnreadMsgCount(QBChatDialog chatDialog){
+    private int getUnreadMsgCount(QBChatDialog chatDialog) {
         Integer unreadMessageCount = chatDialog.getUnreadMessageCount();
         if (unreadMessageCount == null) {
             return 0;
@@ -84,8 +84,8 @@ public class DialogsAdapter extends BaseSelectableListAdapter<QBChatDialog> {
         return TextUtils.isEmpty(lastMessage) && lastMessageSenderId != null;
     }
 
-    private String prepareTextLastMessage(QBChatDialog chatDialog){
-        if (isLastMessageAttachment(chatDialog)){
+    private String prepareTextLastMessage(QBChatDialog chatDialog) {
+        if (isLastMessageAttachment(chatDialog)) {
             return context.getString(R.string.chat_attachment);
         } else {
             return chatDialog.getLastMessage();

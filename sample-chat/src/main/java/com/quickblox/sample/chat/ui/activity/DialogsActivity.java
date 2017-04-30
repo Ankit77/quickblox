@@ -473,8 +473,11 @@ public class DialogsActivity extends BaseActivity implements DialogsManager.Mana
     private class AllDialogsMessageListener extends QbChatDialogMessageListenerImp {
         @Override
         public void processMessage(final String dialogId, final QBChatMessage qbChatMessage, Integer senderId) {
-            if (!senderId.equals(ChatHelper.getCurrentUser().getId())) {
-                dialogsManager.onGlobalMessageReceived(dialogId, qbChatMessage);
+            if (!qbChatMessage.getBody().equalsIgnoreCase(ChatActivity.TYPINGSTART) || !qbChatMessage.getBody().equalsIgnoreCase(ChatActivity.TYPINGEND)) {
+                if (!senderId.equals(ChatHelper.getCurrentUser().getId())) {
+                    dialogsManager.onGlobalMessageReceived(dialogId, qbChatMessage);
+                    updateDialogsAdapter();
+                }
             }
         }
     }

@@ -24,7 +24,7 @@ public class SplashActivity extends CoreSplashActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (checkConfigsWithSnackebarError()){
+        if (checkConfigsWithSnackebarError()) {
             proceedToTheNextActivityWithDelay();
         }
     }
@@ -51,7 +51,7 @@ public class SplashActivity extends CoreSplashActivity {
         return result;
     }
 
-    private void restoreChatSession(){
+    private void restoreChatSession() {
         if (ChatHelper.getInstance().isLogged()) {
             DialogsActivity.start(this);
             finish();
@@ -61,7 +61,7 @@ public class SplashActivity extends CoreSplashActivity {
         }
     }
 
-    private QBUser getUserFromSession(){
+    private QBUser getUserFromSession() {
         QBUser user = SharedPrefsHelper.getInstance().getQbUser();
         user.setId(QBSessionManager.getInstance().getSessionParameters().getUserId());
         return user;
@@ -79,7 +79,7 @@ public class SplashActivity extends CoreSplashActivity {
             @Override
             public void onSuccess(Void result, Bundle bundle) {
                 Log.v(TAG, "Chat login onSuccess()");
-
+                ChatHelper.getInstance().roasterList();
                 ProgressDialogFragment.hide(getSupportFragmentManager());
                 DialogsActivity.start(SplashActivity.this);
                 finish();
@@ -89,7 +89,7 @@ public class SplashActivity extends CoreSplashActivity {
             public void onError(QBResponseException e) {
                 ProgressDialogFragment.hide(getSupportFragmentManager());
                 Log.w(TAG, "Chat login onError(): " + e);
-                showSnackbarError( findViewById(R.id.layout_root), R.string.error_recreate_session, e,
+                showSnackbarError(findViewById(R.id.layout_root), R.string.error_recreate_session, e,
                         new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {

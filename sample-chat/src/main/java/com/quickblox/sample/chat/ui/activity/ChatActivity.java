@@ -16,19 +16,26 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.quickblox.chat.QBChatService;
+import com.quickblox.chat.QBRoster;
+import com.quickblox.chat.listeners.QBChatDialogTypingListener;
+import com.quickblox.chat.listeners.QBRosterListener;
+import com.quickblox.chat.listeners.QBSubscriptionListener;
 import com.quickblox.chat.model.QBAttachment;
 import com.quickblox.chat.model.QBChatMessage;
 import com.quickblox.chat.model.QBChatDialog;
 import com.quickblox.chat.model.QBDialogType;
+import com.quickblox.chat.model.QBPresence;
 import com.quickblox.core.QBEntityCallback;
 import com.quickblox.core.exception.QBResponseException;
 import com.quickblox.sample.chat.R;
 import com.quickblox.sample.chat.ui.adapter.AttachmentPreviewAdapter;
 import com.quickblox.sample.chat.ui.adapter.ChatAdapter;
 import com.quickblox.sample.chat.ui.widget.AttachmentPreviewAdapterView;
+import com.quickblox.sample.chat.utils.chat.Chat;
 import com.quickblox.sample.chat.utils.chat.ChatHelper;
 import com.quickblox.sample.chat.utils.qb.PaginationHistoryListener;
 import com.quickblox.sample.chat.utils.qb.QbChatDialogMessageListenerImp;
@@ -72,14 +79,17 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
     private ChatAdapter chatAdapter;
     private AttachmentPreviewAdapter attachmentPreviewAdapter;
     private ConnectionListener chatConnectionListener;
-
+    private QBRosterListener qbRosterListener;
+    private QBRoster chatRoster;
     private QBChatDialog qbChatDialog;
     private ArrayList<QBChatMessage> unShownMessages;
     private int skipPagination = 0;
     private ChatMessageListener chatMessageListener;
     private boolean typingStarted;
+    private Chat chat;
     public static final String TYPINGSTART = "typing_start";
     public static final String TYPINGEND = "typing_end";
+    private TextView tvStatus;
 
     public static void startForResult(Activity activity, int code, QBChatDialog dialogId) {
         Intent intent = new Intent(activity, ChatActivity.class);
@@ -93,7 +103,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
         setContentView(R.layout.activity_chat);
 
         Log.v(TAG, "onCreate ChatActivity on Thread ID = " + Thread.currentThread().getId());
-
+        tvStatus = (TextView) findViewById(R.id.layout_chat_send_tvstatus);
         qbChatDialog = (QBChatDialog) getIntent().getSerializableExtra(EXTRA_DIALOG_ID);
 
         Log.v(TAG, "deserialized dialog = " + qbChatDialog);
@@ -102,6 +112,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
         chatMessageListener = new ChatMessageListener();
 
         qbChatDialog.addMessageListener(chatMessageListener);
+        qbChatDialog.addIsTypingListener(qbChatDialogTypingListener);
 
         initChatConnectionListener();
 
@@ -339,12 +350,25 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
                 if (!TextUtils.isEmpty(editable.toString()) && editable.toString().trim().length() == 1) {
                     //Log.i(TAG, “typing started event…”);
                     typingStarted = true;
+                    try {
+                        qbChatDialog.sendIsTypingNotification();
+                    } catch (XMPPException e) {
+                        e.printStackTrace();
+                    } catch (SmackException.NotConnectedException e) {
+                        e.printStackTrace();
+                    }
                     //send typing started status
-                    sendChatMessage(TYPINGSTART, null);
+
                 } else if (editable.toString().trim().length() == 0 && typingStarted) {
                     //Log.i(TAG, “typing stopped event…”);
                     typingStarted = false;
-                    sendChatMessage(TYPINGEND, null);
+                    try {
+                        qbChatDialog.sendStopTypingNotification();
+                    } catch (XMPPException e) {
+                        e.printStackTrace();
+                    } catch (SmackException.NotConnectedException e) {
+                        e.printStackTrace();
+                    }
                     //send typing stopped status
                 }
 
@@ -359,6 +383,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
             chatMessage.addAttachment(attachment);
         } else {
             chatMessage.setBody(text);
+            messageEditText.setText("");
         }
         chatMessage.setProperty(PROPERTY_SAVE_TO_HISTORY, "1");
         chatMessage.setDateSent(System.currentTimeMillis() / 1000);
@@ -463,11 +488,15 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
     }
 
     private void loadDialogUsers() {
+
         ChatHelper.getInstance().getUsersFromDialog(qbChatDialog, new QBEntityCallback<ArrayList<QBUser>>() {
             @Override
             public void onSuccess(ArrayList<QBUser> users, Bundle bundle) {
                 setChatNameToActionBar();
                 loadChatHistory();
+                ChatHelper.getInstance().addtoRoaster(QbDialogUtils.getOpponentIdForPrivateDialog(qbChatDialog));
+                isUserAvailable(QbDialogUtils.getOpponentIdForPrivateDialog(qbChatDialog));
+                roasterList();
             }
 
             @Override
@@ -615,4 +644,85 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
             }
         }
     }
+
+    public void roasterList() {
+        qbRosterListener = new QBRosterListener() {
+            @Override
+            public void entriesDeleted(Collection<Integer> userIds) {
+                Log.e("Roaster", "Delete roaster");
+            }
+
+            @Override
+            public void entriesAdded(Collection<Integer> userIds) {
+                Log.e("Roaster", "Addedto roaster 11111");
+            }
+
+            @Override
+            public void entriesUpdated(Collection<Integer> userIds) {
+                Log.e("Roaster", "Update roaster");
+            }
+
+            @Override
+            public void presenceChanged(QBPresence presence) {
+                Log.e("Roaster", "Presence change roaster Chat screennnnnnnn" + presence.getUserId() + "==" + presence.getType());
+                if (presence.getUserId().toString().equalsIgnoreCase(QbDialogUtils.getOpponentIdForPrivateDialog(qbChatDialog).toString())) {
+                    userpresencechange(presence);
+                }
+                //isUserAvailable(presence.getUserId());
+
+
+            }
+        };
+
+        QBSubscriptionListener subscriptionListener = new QBSubscriptionListener() {
+            @Override
+            public void subscriptionRequested(int userId) {
+                // addtoRoaster(userId);
+                Log.e("RoasterChatService", "subbbbbbbb roaster=====" + userId);
+            }
+        };
+
+
+        // Do this after success Chat login
+        chatRoster = QBChatService.getInstance().getRoster(QBRoster.SubscriptionMode.mutual, subscriptionListener);
+        chatRoster.addRosterListener(qbRosterListener);
+
+    }
+
+    public void isUserAvailable(int opponentID) {
+        QBPresence presence = ChatHelper.getInstance().getChatRoster().getPresence(opponentID);
+        if (presence == null) {
+            Log.e("QBPresence", "User not present");
+            // No user in your roster
+            return;
+        }
+        userpresencechange(presence);
+    }
+
+    private void userpresencechange(final QBPresence presence) {
+        Log.e("PresenceChange", "Yes");
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (presence.getType() == QBPresence.Type.online) {
+                    tvStatus.setText("Online");
+                } else {
+                    tvStatus.setText("Offline");
+                }
+            }
+        });
+    }
+
+    QBChatDialogTypingListener qbChatDialogTypingListener = new QBChatDialogTypingListener() {
+        @Override
+        public void processUserIsTyping(String s, Integer integer) {
+            tvStatus.setText("Typing");
+        }
+
+        @Override
+        public void processUserStopTyping(String s, Integer integer) {
+            isUserAvailable(integer);
+        }
+    };
+
 }

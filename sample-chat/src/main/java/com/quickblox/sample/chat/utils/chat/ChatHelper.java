@@ -7,10 +7,14 @@ import android.util.Log;
 import com.quickblox.auth.session.QBSettings;
 import com.quickblox.chat.QBChatService;
 import com.quickblox.chat.QBRestChatService;
+import com.quickblox.chat.QBRoster;
+import com.quickblox.chat.listeners.QBRosterListener;
+import com.quickblox.chat.listeners.QBSubscriptionListener;
 import com.quickblox.chat.model.QBAttachment;
 import com.quickblox.chat.model.QBChatDialog;
 import com.quickblox.chat.model.QBChatMessage;
 import com.quickblox.chat.model.QBDialogType;
+import com.quickblox.chat.model.QBPresence;
 import com.quickblox.chat.request.QBDialogRequestBuilder;
 import com.quickblox.chat.utils.DialogUtils;
 import com.quickblox.content.QBContent;
@@ -59,6 +63,8 @@ public class ChatHelper {
     private static ChatHelper instance;
 
     private QBChatService qbChatService;
+    private QBRoster chatRoster;
+    private QBRosterListener rosterListener;
 
     public static synchronized ChatHelper getInstance() {
         if (instance == null) {
@@ -68,6 +74,14 @@ public class ChatHelper {
             instance = new ChatHelper();
         }
         return instance;
+    }
+
+    public QBRoster getChatRoster() {
+        return chatRoster;
+    }
+
+    public QBRosterListener getRosterListener() {
+        return rosterListener;
     }
 
     public boolean isLogged() {
@@ -134,11 +148,14 @@ public class ChatHelper {
 
     public void loginToChat(final QBUser user, final QBEntityCallback<Void> callback) {
         if (qbChatService.isLoggedIn()) {
+
             callback.onSuccess(null, null);
+
             return;
         }
 
         qbChatService.login(user, callback);
+
     }
 
     public void join(QBChatDialog chatDialog, final QBEntityCallback<Void> callback) {
@@ -365,4 +382,69 @@ public class ChatHelper {
                     }
                 });
     }
+
+    public void roasterList() {
+        rosterListener = new QBRosterListener() {
+            @Override
+            public void entriesDeleted(Collection<Integer> userIds) {
+                Log.e("Roaster", "Delete roaster");
+            }
+
+            @Override
+            public void entriesAdded(Collection<Integer> userIds) {
+                Log.e("Roaster", "Addedto roaster 11111");
+            }
+
+            @Override
+            public void entriesUpdated(Collection<Integer> userIds) {
+                Log.e("Roaster", "Update roaster");
+            }
+
+            @Override
+            public void presenceChanged(QBPresence presence) {
+                Log.e("Roaster", "Presence change roaster" + presence.getUserId() + "==" + presence.getType());
+                //isUserAvailable(presence.getUserId());
+
+
+            }
+        };
+
+
+        QBSubscriptionListener subscriptionListener = new QBSubscriptionListener() {
+            @Override
+            public void subscriptionRequested(int userId) {
+                addtoRoaster(userId);
+                Log.e("RoasterChatService", "subbbbbbbb roaster=====" + userId);
+            }
+        };
+
+
+        // Do this after success Chat login
+        chatRoster = QBChatService.getInstance().getRoster(QBRoster.SubscriptionMode.mutual, subscriptionListener);
+        chatRoster.addRosterListener(rosterListener);
+
+    }
+
+    public void addtoRoaster(int userID) {
+        if (chatRoster.contains(userID)) {
+            try {
+                chatRoster.subscribe(userID);
+                chatRoster.confirmSubscription(userID);
+                Log.e("RoasterChatService", "Subscription roaster");
+            } catch (SmackException.NotConnectedException e) {
+                Log.e("Suberror", e.getMessage());
+            } catch (XMPPException | SmackException.NotLoggedInException | SmackException.NoResponseException e) {
+                e.printStackTrace();
+            }
+        } else {
+            try {
+                chatRoster.createEntry(userID, null);
+                chatRoster.confirmSubscription(userID);
+                Log.e("Roaster", "Addedto roaster" + userID);
+            } catch (XMPPException | SmackException.NotLoggedInException | SmackException.NoResponseException | SmackException.NotConnectedException e) {
+                Log.e("E", e.getMessage());
+            }
+        }
+    }
+
 }

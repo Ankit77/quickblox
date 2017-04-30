@@ -149,4 +149,22 @@ public class QbDialogUtils {
 
         return chatDialog;
     }
+
+    public static Integer getOpponentIdForPrivateDialog(QBChatDialog dialog) {
+        Integer opponentId = -1;
+        QBUser qbUser = ChatHelper.getCurrentUser();
+        if (qbUser == null) {
+            return opponentId;
+        }
+
+        Integer currentUserId = qbUser.getId();
+
+        for (Integer userId : dialog.getOccupants()) {
+            if (!userId.equals(currentUserId)) {
+                opponentId = userId;
+                break;
+            }
+        }
+        return opponentId;
+    }
 }
