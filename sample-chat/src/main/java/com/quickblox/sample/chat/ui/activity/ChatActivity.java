@@ -19,9 +19,14 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.quickblox.chat.QBChat;
 import com.quickblox.chat.QBChatService;
+import com.quickblox.chat.QBMessageStatusesSender;
 import com.quickblox.chat.QBRoster;
+import com.quickblox.chat.listeners.QBChatDialogMessageSentListener;
 import com.quickblox.chat.listeners.QBChatDialogTypingListener;
+import com.quickblox.chat.listeners.QBMessageSentListener;
+import com.quickblox.chat.listeners.QBMessageStatusListener;
 import com.quickblox.chat.listeners.QBRosterListener;
 import com.quickblox.chat.listeners.QBSubscriptionListener;
 import com.quickblox.chat.model.QBAttachment;
@@ -32,6 +37,7 @@ import com.quickblox.chat.model.QBPresence;
 import com.quickblox.core.QBEntityCallback;
 import com.quickblox.core.exception.QBResponseException;
 import com.quickblox.sample.chat.R;
+import com.quickblox.sample.chat.models.ChatModel;
 import com.quickblox.sample.chat.ui.adapter.AttachmentPreviewAdapter;
 import com.quickblox.sample.chat.ui.adapter.ChatAdapter;
 import com.quickblox.sample.chat.ui.widget.AttachmentPreviewAdapterView;
@@ -56,6 +62,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 import se.emilsjolander.stickylistheaders.StickyListHeadersListView;
@@ -85,11 +92,14 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
     private ArrayList<QBChatMessage> unShownMessages;
     private int skipPagination = 0;
     private ChatMessageListener chatMessageListener;
+    private QBMessageStatusesSender qbMessageStatusesSender;
     private boolean typingStarted;
     private Chat chat;
     public static final String TYPINGSTART = "typing_start";
     public static final String TYPINGEND = "typing_end";
-    private TextView tvStatus;
+    private ActionBar ab;
+    private ArrayList<String> readMessageList=new ArrayList<>();
+    private ArrayList<String> deliverMessageList=new ArrayList<>();
 
     public static void startForResult(Activity activity, int code, QBChatDialog dialogId) {
         Intent intent = new Intent(activity, ChatActivity.class);
@@ -103,7 +113,6 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
         setContentView(R.layout.activity_chat);
 
         Log.v(TAG, "onCreate ChatActivity on Thread ID = " + Thread.currentThread().getId());
-        tvStatus = (TextView) findViewById(R.id.layout_chat_send_tvstatus);
         qbChatDialog = (QBChatDialog) getIntent().getSerializableExtra(EXTRA_DIALOG_ID);
 
         Log.v(TAG, "deserialized dialog = " + qbChatDialog);
@@ -113,7 +122,8 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
 
         qbChatDialog.addMessageListener(chatMessageListener);
         qbChatDialog.addIsTypingListener(qbChatDialogTypingListener);
-
+        qbChatDialog.addMessageSentListener(qbChatDialogMessageSentListener);
+        QBChatService.getInstance().getMessageStatusesManager().addMessageStatusListener(qbMessageStatusListener);
         initChatConnectionListener();
 
         initViews();
@@ -134,6 +144,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
         if (qbChatDialog == null) {
             qbChatDialog = QbDialogHolder.getInstance().getChatDialogById(savedInstanceState.getString(EXTRA_DIALOG_ID));
         }
+
     }
 
     @Override
@@ -294,8 +305,10 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
     }
 
     public void showMessage(QBChatMessage message) {
+
         if (chatAdapter != null) {
             chatAdapter.add(message);
+
             scrollMessageListDown();
         } else {
             if (unShownMessages == null) {
@@ -379,14 +392,14 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
 
     private void sendChatMessage(String text, QBAttachment attachment) {
         QBChatMessage chatMessage = new QBChatMessage();
+        chatMessage.setMarkable(true);
         if (attachment != null) {
             chatMessage.addAttachment(attachment);
         } else {
             chatMessage.setBody(text);
             messageEditText.setText("");
         }
-        chatMessage.setProperty(PROPERTY_SAVE_TO_HISTORY, "1");
-        chatMessage.setDateSent(System.currentTimeMillis() / 1000);
+        chatMessage.setSaveToHistory(true); // Save a message to history
         chatMessage.setMarkable(true);
 
         if (!QBDialogType.PRIVATE.equals(qbChatDialog.getType()) && !qbChatDialog.isJoined()) {
@@ -514,7 +527,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
 
     private void setChatNameToActionBar() {
         String chatName = QbDialogUtils.getDialogName(qbChatDialog);
-        ActionBar ab = getSupportActionBar();
+        ab = getSupportActionBar();
         if (ab != null) {
             ab.setTitle(chatName);
             ab.setDisplayHomeAsUpEnabled(true);
@@ -529,6 +542,11 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
                 // The newest messages should be in the end of list,
                 // so we need to reverse list to show messages in the right order
                 Collections.reverse(messages);
+//                for (int i = 0; i < messages.size(); i++) {
+//                    if(messages.get(i).)
+//                    hashMap.put(messages.get(i).getId(),)
+//                }
+
                 if (chatAdapter == null) {
                     chatAdapter = new ChatAdapter(ChatActivity.this, qbChatDialog, messages);
                     chatAdapter.setPaginationHistoryListener(new PaginationHistoryListener() {
@@ -640,7 +658,15 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
             } else if (qbChatMessage.getBody().equalsIgnoreCase(TYPINGEND)) {
                 Toast.makeText(ChatActivity.this, "Typing end", Toast.LENGTH_LONG).show();
             } else {
+                if (qbChatMessage.isMarkable()) {
+                    try {
+                        qbChatDialog.readMessage(qbChatMessage);
+                    } catch (XMPPException | SmackException.NotConnectedException e) {
+
+                    }
+                }
                 showMessage(qbChatMessage);
+
             }
         }
     }
@@ -705,9 +731,9 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
             @Override
             public void run() {
                 if (presence.getType() == QBPresence.Type.online) {
-                    tvStatus.setText("Online");
+                    ab.setSubtitle("Online");
                 } else {
-                    tvStatus.setText("Offline");
+                    ab.setSubtitle("Offline");
                 }
             }
         });
@@ -716,7 +742,7 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
     QBChatDialogTypingListener qbChatDialogTypingListener = new QBChatDialogTypingListener() {
         @Override
         public void processUserIsTyping(String s, Integer integer) {
-            tvStatus.setText("Typing");
+            ab.setSubtitle("Typing...");
         }
 
         @Override
@@ -725,4 +751,40 @@ public class ChatActivity extends BaseActivity implements OnImagePickedListener 
         }
     };
 
+    QBMessageStatusListener qbMessageStatusListener = new QBMessageStatusListener() {
+        @Override
+        public void processMessageDelivered(String s, String s1, Integer integer) {
+            Log.e(ChatActivity.class.getSimpleName(), "Message Delivered");
+            if (chatAdapter != null) {
+                chatAdapter.notifyDataSetChanged();
+            }
+        }
+
+        @Override
+        public void processMessageRead(String s, String s1, Integer integer) {
+            Log.e(ChatActivity.class.getSimpleName(), "Message Read");
+            if (chatAdapter != null) {
+                chatAdapter.notifyDataSetChanged();
+            }
+        }
+    };
+
+    QBChatDialogMessageSentListener qbChatDialogMessageSentListener = new QBChatDialogMessageSentListener() {
+        @Override
+        public void processMessageSent(String s, QBChatMessage qbChatMessage) {
+            Log.e(ChatActivity.class.getSimpleName(), "Message sent");
+            if (chatAdapter != null) {
+                chatAdapter.notifyDataSetChanged();
+            }
+        }
+
+        @Override
+        public void processMessageFailed(String s, QBChatMessage qbChatMessage) {
+            Log.e(ChatActivity.class.getSimpleName(), "Message Failed");
+            if (chatAdapter != null) {
+                messagesListView.setAdapter(chatAdapter);
+//                chatAdapter.notifyDataSetChanged();
+            }
+        }
+    };
 }

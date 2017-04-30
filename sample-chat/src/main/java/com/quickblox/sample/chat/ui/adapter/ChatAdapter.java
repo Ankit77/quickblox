@@ -21,6 +21,7 @@ import com.quickblox.chat.model.QBChatDialog;
 import com.quickblox.chat.model.QBChatMessage;
 import com.quickblox.core.helper.CollectionsUtil;
 import com.quickblox.sample.chat.R;
+import com.quickblox.sample.chat.models.ChatModel;
 import com.quickblox.sample.chat.ui.activity.AttachmentImageActivity;
 import com.quickblox.sample.chat.ui.widget.MaskedImageView;
 import com.quickblox.sample.chat.utils.Consts;
@@ -35,6 +36,7 @@ import com.quickblox.users.model.QBUser;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.XMPPException;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -48,6 +50,8 @@ public class ChatAdapter extends BaseListAdapter<QBChatMessage> implements Stick
     private PaginationHistoryListener paginationListener;
     private int previousGetCount = 0;
 
+
+
     public ChatAdapter(Context context, QBChatDialog chatDialog, List<QBChatMessage> chatMessages) {
         super(context, chatMessages);
         this.chatDialog = chatDialog;
@@ -56,6 +60,7 @@ public class ChatAdapter extends BaseListAdapter<QBChatMessage> implements Stick
     public void setOnItemInfoExpandedListener(OnItemInfoExpandedListener onItemInfoExpandedListener) {
         this.onItemInfoExpandedListener = onItemInfoExpandedListener;
     }
+
 
     @Override
     public View getView(final int position, View convertView, ViewGroup parent) {
@@ -71,7 +76,8 @@ public class ChatAdapter extends BaseListAdapter<QBChatMessage> implements Stick
             holder.messageInfoTextView = (TextView) convertView.findViewById(R.id.text_message_info);
             holder.attachmentImageView = (MaskedImageView) convertView.findViewById(R.id.image_message_attachment);
             holder.attachmentProgressBar = (ProgressBar) convertView.findViewById(R.id.progress_message_attachment);
-
+            holder.imgStatus = (ImageView) convertView.findViewById(R.id.text_message_imgstatus);
+            holder.tvStatus = (TextView) convertView.findViewById(R.id.text_message_tv_status);
             convertView.setTag(holder);
         } else {
             holder = (ViewHolder) convertView.getTag();
@@ -83,7 +89,17 @@ public class ChatAdapter extends BaseListAdapter<QBChatMessage> implements Stick
         setMessageBody(holder, chatMessage);
         setMessageInfo(chatMessage, holder);
         setMessageAuthor(holder, chatMessage);
+//        if (chatMessage.isMarkable()) {
+//            holder.imgStatus.setImageResource(R.drawable.ic_status_mes_sent);
+//        } else
+        if (isRead(chatMessage)) {
 
+            holder.imgStatus.setImageResource(R.drawable.ic_status_mes_sent_received);
+            holder.tvStatus.setText(""+System.currentTimeMillis());
+        } else {
+            holder.imgStatus.setImageResource(R.drawable.ic_action_done);
+            holder.tvStatus.setText("UnRead");
+        }
 
         holder.messageContainerLayout.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -110,9 +126,9 @@ public class ChatAdapter extends BaseListAdapter<QBChatMessage> implements Stick
         });
         holder.messageInfoTextView.setVisibility(View.GONE);
 
-        if (isIncoming(chatMessage) && !isRead(chatMessage)){
-            readMessage(chatMessage);
-        }
+//        if (isIncoming(chatMessage) && !isRead(chatMessage)) {
+//            readMessage(chatMessage);
+//        }
 
         downloadMore(position);
 
@@ -280,18 +296,18 @@ public class ChatAdapter extends BaseListAdapter<QBChatMessage> implements Stick
         return chatMessage.getSenderId() != null && !chatMessage.getSenderId().equals(currentUser.getId());
     }
 
-    private boolean isRead(QBChatMessage chatMessage){
+    private boolean isRead(QBChatMessage chatMessage) {
         Integer currentUserId = ChatHelper.getCurrentUser().getId();
         return !CollectionsUtil.isEmpty(chatMessage.getReadIds()) && chatMessage.getReadIds().contains(currentUserId);
     }
 
-    private void readMessage(QBChatMessage chatMessage){
-        try {
-            chatDialog.readMessage(chatMessage);
-        } catch (XMPPException | SmackException.NotConnectedException e) {
-            Log.w(TAG, e);
-        }
-    }
+//    private void readMessage(QBChatMessage chatMessage) {
+//        try {
+//            chatDialog.readMessage(chatMessage);
+//        } catch (XMPPException | SmackException.NotConnectedException e) {
+//            Log.w(TAG, e);
+//        }
+//    }
 
     private static class HeaderViewHolder {
         public TextView dateTextView;
@@ -305,6 +321,8 @@ public class ChatAdapter extends BaseListAdapter<QBChatMessage> implements Stick
         public RelativeLayout messageBodyContainerLayout;
         public MaskedImageView attachmentImageView;
         public ProgressBar attachmentProgressBar;
+        public ImageView imgStatus;
+        public TextView tvStatus;
     }
 
     public interface OnItemInfoExpandedListener {

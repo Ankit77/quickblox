@@ -5,11 +5,20 @@
     android:id="@+id/layout_chat_message_container"
     style="@style/MessageContainerStyle"
     tools:gravity="right"
-    tools:ignore="RtlHardcoded">
+    tools:ignore="RtlHardcoded"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/text_message_tv_status"
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:background="@color/color_username_rectangle"
+        android:text="asdsd" />
 
     <RelativeLayout
         android:id="@+id/layout_message_content_container"
         style="@style/MessageContentContainerStyle"
+        android:layout_marginTop="10dp"
         tools:background="@drawable/outgoing_message_bg">
 
         <TextView
@@ -28,7 +37,7 @@
         <ProgressBar
             android:id="@+id/progress_message_attachment"
             style="@style/CenterProgressBarStyle"
-            android:theme="@style/AppTheme.BlueAccent"/>
+            android:theme="@style/AppTheme.BlueAccent" />
 
         <com.devspark.robototextview.widget.RobotoTextView
             android:id="@+id/text_message_author"
@@ -39,6 +48,16 @@
 
     <TextView
         android:id="@+id/text_message_info"
-        style="@style/MessageInfoStyle"
-        tools:text="10:50" />
+        android:layout_width="wrap_content"
+        android:layout_height="20dp"
+        tools:text="10:50dsdsdsdsdsdsdsd" />
+
+    <ImageView
+        android:id="@+id/text_message_imgstatus"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginTop="5dp"
+        android:src="@drawable/ic_done_dark" />
+
+
 </LinearLayout>
